@@ -52,6 +52,7 @@ npm run build
 npm test
 npm run coverage
 npm run e2e
+npm run test:package
 npm run mutation
 ```
 
@@ -67,4 +68,4 @@ Report vulnerabilities through [private security reporting](https://github.com/s
 
 ## License
 
-The source is public, but an open-source license has not been selected yet.
+Licensed under [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution. The standalone download includes the complete license and notice; they are also included in the package and release assets. This license applies to the receiver repository, not the separate SMUK application or AI providers.

@@ -57,6 +57,9 @@ proves delivery origin, not that a Discord author's text is trustworthy.
 `src/index.ts` with esbuild into `dist/smuk-receiver.mjs` for Node.js 22.13+.
 Versioned releases contain the executable and a package tarball. The SMUK
 site serves the executable from its pinned package dependency.
+The receiver is licensed under Apache 2.0. The standalone executable embeds
+the full LICENSE and NOTICE after its shebang; npm packages include both files.
+The browser-safe protocol preserves an Apache attribution comment for bundlers.
 There are no receiver npm dependencies, hosted inboxes, API keys, or idle AI
 polls. `init` creates a private config and a random per-destination secret.
 `serve` binds only 127.0.0.1; the user supplies TLS through their proxy/tunnel.
