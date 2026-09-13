@@ -1,0 +1,77 @@
+{
+  "name": "@smuk-ai/receiver",
+  "version": "0.1.0",
+  "description": "User-owned receiver for signed SMUK messages and restricted local agent CLI processing.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smuk-ai/receiver.git"
+  },
+  "homepage": "https://smuk.ai/agent-receiver.html",
+  "bugs": {
+    "url": "https://github.com/smuk-ai/receiver/issues"
+  },
+  "bin": {
+    "smuk-receiver": "./dist/smuk-receiver.mjs"
+  },
+  "exports": {
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "import": "./dist/protocol.js"
+    },
+    "./signature": {
+      "types": "./dist/signature.d.ts",
+      "import": "./dist/signature.js"
+    },
+    "./inbox": {
+      "types": "./dist/inbox.d.ts",
+      "import": "./dist/inbox.js"
+    },
+    "./runner": {
+      "types": "./dist/runner.d.ts",
+      "import": "./dist/runner.js"
+    },
+    "./policy": {
+      "types": "./dist/policy.d.ts",
+      "import": "./dist/policy.js"
+    },
+    "./smuk-receiver.mjs": "./dist/smuk-receiver.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "docs",
+    "examples"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "mutation": "stryker run",
+    "e2e": "node test/e2e.mjs",
+    "prepack": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
+    "@types/node": "24.13.3",
+    "@vitest/coverage-v8": "4.1.11",
+    "esbuild": "0.28.2",
+    "typescript": "6.0.3",
+    "vitest": "4.1.11",
+    "vite": "8.2.1"
+  },
+  "license": "UNLICENSED"
+}
