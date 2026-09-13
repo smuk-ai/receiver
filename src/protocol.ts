@@ -1,3 +1,6 @@
+/*! SMUK Receiver | Copyright 2026 SMUK AI | SPDX-License-Identifier: Apache-2.0
+ * License: https://github.com/smuk-ai/receiver/blob/main/LICENSE
+ */
 // Browser-safe wire contract shared by senders and the local receiver.
 // Authentication covers the exact UTF-8 JSON bytes; unknown fields are not part
 // of this protocol and are dropped by the receiver's policy boundary.
