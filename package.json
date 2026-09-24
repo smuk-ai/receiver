@@ -1,6 +1,6 @@
 {
   "name": "@smuk-ai/receiver",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "User-owned receiver for signed SMUK messages and restricted local agent CLI processing.",
   "type": "module",
   "engines": {
@@ -57,7 +57,7 @@
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "mutation": "stryker run",
-    "e2e": "node test/e2e.mjs",
+    "e2e": "node test/e2e.mjs && node test/setup-e2e.mjs",
     "prepack": "npm run build",
     "test:package": "node test/package.mjs"
   },

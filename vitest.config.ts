@@ -8,7 +8,7 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.ts'],
       // CLI and watchdog composition are exercised by test/e2e.mjs.
-      exclude: ['**/*.test.ts', 'src/index.ts', 'src/supervisor.ts'],
+      exclude: ['**/*.test.ts', 'src/index.ts', 'src/supervisor.ts', 'src/session.ts', 'src/tunnel.ts'],
       reporter: ['text', 'text-summary'],
       thresholds: { perFile: true, lines: 85, functions: 85, statements: 85, branches: 85 },
     },

@@ -66,8 +66,58 @@ polls. `init` creates a private config and a random per-destination secret.
 Only POST `/webhook` is exposed; statuses/results are available via local
 `list`, never through HTTP. Serving alone queues without processing.
 
+### Quick setup and local approval
+
+`setup <https-origin/#token> --tunnel <absolute-executable-path>` is the quick
+setup entry point. The SMUK installer supplies the privately installed tunnel
+executable. A one-time 64-character hex token stays in the link fragment and
+is sent only as a Bearer authorization header to fixed pairing endpoints on
+that HTTPS origin. Redirects are refused; requests time out after ten seconds
+and response bodies are capped at 64 KiB. No token or signing secret is printed.
+
+The manifest contains only schema version 1, destination ID, provider, exact
+instructions and source IDs. The receiver validates it, prints those details
+with terminal control characters escaped, and requires the local user to type
+`approve`. Cancellation or EOF before approval never changes a configuration.
+The installation directory is `~/.smuk/receivers/<sha256-of-origin-and-node-id>` with
+private permissions. Pairing with a different HTTPS origin creates a separate
+installation and never reuses or sends another site's signing key. The approval
+summary shows the site origin. A receiver lock covers approval, atomic configuration
+replacement and the serving lifetime. Reconnection retains the existing
+signing secret, SQLite inbox and sender/channel/server allowlists. Changed
+instructions, providers or sources require fresh local approval; dequeued
+messages still pass the existing exact-policy check before any agent runs.
+
+The receiver opens an available localhost port and launches the explicitly
+provided Cloudflare executable without a shell, with automatic updates off
+a separate private HOME, an explicit fresh empty config file, and metrics bound
+to an available localhost port. User and system tunnel configurations are not
+applied; a private HOME alone would still allow /etc/cloudflared defaults.
+It accepts only a generated HTTPS `*.trycloudflare.com` address and waits for
+the connection registration event before completing pairing. Tunnel output is
+bounded and not echoed. The completion request carries that webhook address
+and signing key to SMUK; the user still needs to publish the blueprint.
+The tunnel forwards the existing write-only webhook surface; it cannot access
+configuration, controls, inboxes or answers over HTTP.
+
+Quick tunnels are temporary, intended for trying the receiver, and do not
+promise uptime. Stopping the terminal stops both receiver and tunnel. A fresh
+Connect computer command and Publish reconnect the same tile while retaining
+local state. Stable addresses remain available through the manual workflow.
+
+The foreground terminal accepts `process`, `pause`, `results`, and `quit`.
+Every setup starts receive-only; only the local `process` command enables AI,
+after the existing isolation/platform checks. `pause` stops new starts without
+cancelling the current job. `results` shows inert JSON locally. EOF, Ctrl+C,
+termination and hangup close the tunnel and receiver, cancel active AI work,
+and release the installation lock. If the tunnel exits, receiving stops with
+reconnection guidance. The manual `init`, `serve`, `list` and `--process`
+interfaces remain available.
+
 SQLite WAL persists queued/running/completed/failed/interrupted records with
-private permissions. Capacity is 1,000 retained rows, including completed
+private permissions. Pairing with a different HTTPS origin creates a separate
+installation and never reuses or sends another site's signing key. The approval
+summary shows the site origin. Capacity is 1,000 retained rows, including completed
 ones, and retention is seven days while serving. The dedup window lasts only
 as long as the retained record. At most 60 ingress requests/minute, 32 sockets,
 128 KiB request bodies and 10-second request/header timeouts are accepted.
@@ -129,3 +179,16 @@ References checked 2026-09-12: [Codex noninteractive](https://learn.chatgpt.com/
 [Grok CLI](https://docs.x.ai/build/cli/reference),
 [Grok configuration sources](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/26-config-reference.md).
 CLI releases and subscription eligibility can change independently of SMUK.
+
+## Testing the setup workflow
+
+`test/setup-e2e.mjs` exercises the actual bundled executable with a local HTTPS
+pairing server and a generated test certificate, fake tunnel and agent
+executables, real SQLite and signed local deliveries. It covers cancelled
+approval, control-character display, private permissions and tunnel HOME,
+write-only HTTP, retained keys and inboxes, duplicate-instance refusal,
+receive-only restarts, changed-policy queue rejection, pairing/tunnel failures,
+and signal cleanup. No production HTTP bypass or public tunnel is used.
+`src/setup.ts` and `src/terminal.ts` are unit and mutation tested. CLI, session
+and tunnel composition are covered by real-process tests rather than mocked
+coverage of their I/O.

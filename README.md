@@ -15,32 +15,50 @@ The receiver and agent CLI run on your machine; the AI model runs at the agent p
 
 ## Get started
 
-Use Node.js **22.13 or newer**, a dedicated computer account, and an installed, signed-in supported agent CLI. Processing supports macOS/Linux; Grok Build processing is Linux-only. Windows can receive and list messages.
+In SMUK, add an **Agent Receiver** tile, connect a source, and enter your agent and instructions. Choose **Connect computer** and copy its setup command into Terminal on your computer.
 
-1. Follow the [setup guide](https://smuk.ai/agent-receiver.html), including the computer and agent prerequisites.
-2. Download `smuk-receiver.mjs` from a [versioned release](https://github.com/smuk-ai/receiver/releases). It needs no runtime npm packages.
-3. Configure the matching Agent Receiver tile in SMUK, then run these commands from the folder containing your download:
+The command installs the receiver and connection helper privately in `~/.smuk`. The receiver shows the exact instructions and source tiles for your approval, connects the tile, and starts receiving in that same terminal. Return to SMUK and **Publish** your blueprint. Receiving makes no AI calls.
+
+Keep that terminal open. Its commands are:
+
+| Command | What it does |
+| --- | --- |
+| `process` | Enables AI processing using your installed, signed-in agent CLI. |
+| `pause` | Stops new AI jobs; the current job may finish and messages still arrive. |
+| `results` | Shows locally saved job states and answers. |
+| `quit` | Stops the receiver and its temporary public connection. |
+
+Quick setup uses a temporary Cloudflare connection intended for trying the receiver. To reconnect after stopping, use **Connect computer** on the same tile again. Your inbox, signing key and local restrictions are retained; review the instructions locally again and publish the new delivery address. AI processing always starts off.
+
+For processing, use a dedicated computer account with your agent installed and signed in. macOS/Linux support processing; Grok Build processing is Linux-only. Windows can use the manual receive/list workflow. Your agent provider's access rules and usage limits apply. Keep your config, signing secret, inbox and agent login private.
+
+<details>
+<summary>Manual setup and a stable public address</summary>
+
+Use Node.js **22.13 or newer** and download `smuk-receiver.mjs` from a [versioned release](https://github.com/smuk-ai/receiver/releases). It needs no runtime npm packages.
 
 ```sh
 node smuk-receiver.mjs init ./smuk-receiver-data
 node smuk-receiver.mjs serve ./smuk-receiver-data
 ```
 
-`init` asks for your tile ID, agent, instructions file and allowed source IDs. It creates a signing secret to paste into the tile. `serve` receives and queues messages with AI processing off. The guide shows how to give SMUK a public HTTPS delivery address using a tunnel or your own proxy.
+`init` asks for your tile ID, agent, instructions file and allowed source IDs. It creates a signing secret to paste into the tile. `serve` receives and queues messages with AI processing off. The [setup guide](https://smuk.ai/agent-receiver.html) shows how to supply a stable public HTTPS address using your own tunnel or reverse proxy.
 
-After testing delivery, stop `serve` with Control+C and restart it with processing enabled:
+After testing delivery, stop `serve` with Control+C and restart with processing enabled:
 
 ```sh
 node smuk-receiver.mjs serve ./smuk-receiver-data --process
 ```
 
-In another terminal, read the locally saved jobs and answers:
+In another terminal, read local jobs and answers:
 
 ```sh
 node smuk-receiver.mjs list ./smuk-receiver-data
 ```
 
-Keep your config, signing secret, inbox and agent login private. See [security and operational limits](docs/architecture.md#cli-restrictions-and-gotchas). Supported adapters are Codex, Claude Code, Gemini CLI and Grok Build; their access rules and usage limits apply.
+</details>
+
+See [security and operational limits](docs/architecture.md#cli-restrictions-and-gotchas). Supported adapters are Codex, Claude Code, Gemini CLI and Grok Build. The receiver does not attach to an existing chat or return answers to SMUK.
 
 ## Build and test
 

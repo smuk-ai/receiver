@@ -15,7 +15,10 @@
     "src/runner.ts",
     "src/service.ts",
     "src/worker.ts",
-    "src/isolation.ts"
+    "src/isolation.ts",
+    "src/setup.ts",
+    "src/terminal.ts",
+    "src/results.ts"
   ],
   "thresholds": {
     "high": 94,
