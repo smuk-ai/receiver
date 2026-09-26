@@ -43,10 +43,21 @@ while keeping distinct runs/configurations separate. Ordinary network,
 429/5xx retries and 30-second delivery timeout apply. Acceptance is logged
 separately from processing completion; SMUK never sees that completion.
 
-The local config independently approves the destination ID, exact provider
+The local config independently approves the destination identity, exact provider
 and instructions, at least one source node ID, and optional sender/channel/
 server ID allowlists. Both inbound and dequeued messages must match. Changing
 instructions on the website alone cannot change what the local agent does.
+Legacy installations approve exactly `message.nodeId`. Reusable saved-agent
+installations explicitly add `destinationId` to their setup manifest and config;
+that ID must equal the manifest/config `nodeId`. Incoming messages must then carry
+that same `agent.destinationId`, while `message.nodeId` retains the actual tile
+that sent the message. This permits several tiles to share the approved agent
+without losing tile provenance. Legacy approvals reject a `destinationId` claim,
+even when it happens to equal their tile ID. Missing/wrong profile identities,
+changed tasks/providers, and unapproved sources fail closed both on delivery and
+when dequeued. Moving an existing local installation between legacy and reusable
+identity modes is refused; it cannot silently broaden a prior tile approval.
+
 Unknown payload fields are dropped; no remote JSON field becomes arguments,
 environment, a callback, a session ID or an executable. A valid signature
 proves delivery origin, not that a Discord author's text is trustworthy.
@@ -63,8 +74,66 @@ The browser-safe protocol preserves an Apache attribution comment for bundlers.
 There are no receiver npm dependencies, hosted inboxes, API keys, or idle AI
 polls. `init` creates a private config and a random per-destination secret.
 `serve` binds only 127.0.0.1; the user supplies TLS through their proxy/tunnel.
-Only POST `/webhook` is exposed; statuses/results are available via local
-`list`, never through HTTP. Serving alone queues without processing.
+Only signed POST `/webhook` delivery and POST `/verify` approval challenges are
+exposed. Inbox contents and results are available via local `list`, never through
+HTTP. Serving alone queues without processing.
+
+### Signed connection verification
+
+`POST /verify` uses the same timestamp/signature headers and exact-byte HMAC as
+webhook delivery. Authentication happens before JSON parsing or policy checks.
+The request is:
+
+```json
+{
+  "schemaVersion": 1,
+  "type": "smuk.receiver.verify",
+  "nonce": "<fresh 64 lowercase hex characters>",
+  "nodeId": "actual-tile-or-saved-profile-id",
+  "destinationId": "saved-profile-id",
+  "provider": "Codex",
+  "instructions": "Summarize as JSON.",
+  "sourceNodeIds": ["approved-source-tile-id"]
+}
+```
+
+Omit `destinationId` for a legacy installation. Verification requires the same
+identity/provider/exact instruction approval as delivery and between 1 and 100
+unique requested source IDs, all locally approved. A saved-agent library check
+uses its profile ID as `nodeId`; a tile check can use the actual tile ID. Fields
+are bounded and unknown input is discarded. No message is enqueued and no agent
+CLI starts. Sender/channel/server message filters still apply to real deliveries;
+verification does not prove that arbitrary future messages will pass those filters.
+
+A successful response contains only:
+
+```json
+{
+  "schemaVersion": 1,
+  "type": "smuk.receiver.verified",
+  "nonce": "<the request nonce>",
+  "approval": "matched",
+  "mode": "receiving",
+  "receiverVersion": "<installed release version>"
+}
+```
+
+The response has its own timestamp and HMAC signature over its exact bytes.
+The caller must verify that signature, timestamp, response type, and its fresh
+nonce before trusting the result. A captured response cannot answer a new
+challenge. Reusing a successfully authenticated challenge is rejected with 409
+until its complete signature window expires, including requests timestamped in
+the future. A bounded 720-entry nonce cache refuses new checks when full rather
+than evicting live challenges. `/verify` shares the existing body/socket/time and
+60 requests/minute ingress limits with `/webhook`; policy failures return a terse
+403 and unavailable mode reads return 503 without private diagnostics.
+
+`receiving` means the running receiver has AI processing disabled. `processing`
+means its local processing switch is enabled; `paused` means the local PAUSE file
+is present. Those states are observed at check time and can change immediately.
+They do **not** prove that a CLI exists, its login works, a provider accepts the
+request, or a model has completed a task. The endpoint exposes no configuration,
+secrets, jobs, results, or processing controls.
 
 ### Quick setup and local approval
 
@@ -75,8 +144,8 @@ is sent only as a Bearer authorization header to fixed pairing endpoints on
 that HTTPS origin. Redirects are refused; requests time out after ten seconds
 and response bodies are capped at 64 KiB. No token or signing secret is printed.
 
-The manifest contains only schema version 1, destination ID, provider, exact
-instructions and source IDs. The receiver validates it, prints those details
+The manifest contains schema version 1, node ID, provider, exact instructions
+and source IDs, plus an optional explicitly approved reusable `destinationId`. The receiver validates it, prints those details
 with terminal control characters escaped, and requires the local user to type
 `approve`. Cancellation or EOF before approval never changes a configuration.
 The installation directory is `~/.smuk/receivers/<sha256-of-origin-and-node-id>` with
@@ -97,7 +166,7 @@ It accepts only a generated HTTPS `*.trycloudflare.com` address and waits for
 the connection registration event before completing pairing. Tunnel output is
 bounded and not echoed. The completion request carries that webhook address
 and signing key to SMUK; the user still needs to publish the blueprint.
-The tunnel forwards the existing write-only webhook surface; it cannot access
+The tunnel forwards the delivery and signed-verification surface; it cannot access
 configuration, controls, inboxes or answers over HTTP.
 
 Quick tunnels are temporary, intended for trying the receiver, and do not
@@ -186,7 +255,8 @@ CLI releases and subscription eligibility can change independently of SMUK.
 pairing server and a generated test certificate, fake tunnel and agent
 executables, real SQLite and signed local deliveries. It covers cancelled
 approval, control-character display, private permissions and tunnel HOME,
-write-only HTTP, retained keys and inboxes, duplicate-instance refusal,
+private HTTP surfaces, signed non-enqueueing checks, receive/process/pause modes,
+reusable destination setup and actual tile provenance, retained keys and inboxes, duplicate-instance refusal,
 receive-only restarts, changed-policy queue rejection, pairing/tunnel failures,
 and signal cleanup. No production HTTP bypass or public tunnel is used.
 `src/setup.ts` and `src/terminal.ts` are unit and mutation tested. CLI, session

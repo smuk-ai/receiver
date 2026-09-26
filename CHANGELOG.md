@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- Support explicitly approved reusable agent destinations while retaining the actual sending tile ID. Existing tile-only installations keep their exact identity policy.
+- Add signed, nonce-bound connection verification that checks local identity, task and source approval and reports receiving, processing or paused mode. Verification neither queues work nor invokes an AI agent, and does not claim that provider sign-in or model execution works.
+- Bound verification replay memory and share existing ingress limits; retain receive-only setup, local approval, signing isolation and private inbox/results.
+
 ## 0.2.0
 
 - Add quick setup from a SMUK tile connection command: review exact local instructions and source approvals once, then receive in one foreground terminal.

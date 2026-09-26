@@ -21,3 +21,16 @@ it('holds revoked and failed work without retrying or exposing provider errors',
   expect(finish.mock.calls[1][2]).not.toContain('secret credential')
   expect(finish.mock.calls[1][1]).toBeNull()
 })
+it('rechecks a saved destination on dequeue and retains the actual tile in agent input', async () => {
+  const saved = { ...config, destinationId: config.nodeId }, p = payload()
+  const delivery = { ...p, agent: { ...p.agent, destinationId: config.nodeId }, message: { ...p.message, nodeId: 'actual-tile' } }
+  const run = vi.fn().mockResolvedValue('{"ok":true}'), finish = vi.fn()
+  await processNext(saved, { claim: () => delivery, finish }, run)
+  expect(JSON.parse(run.mock.calls[0][0].split('UNTRUSTED_MESSAGE_JSON:\n')[1]).nodeId).toBe('actual-tile')
+  for (const policy of [config, { ...saved, destinationId: 'other', nodeId: 'other' }, { ...saved, sourceNodeIds: ['revoked'] }]) {
+    run.mockClear(); finish.mockClear()
+    expect(await processNext(policy, { claim: () => delivery, finish }, run)).toBe(true)
+    expect(run).not.toHaveBeenCalled()
+    expect(finish).toHaveBeenCalledWith(delivery.eventId, null, expect.stringContaining('policy'))
+  }
+})

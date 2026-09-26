@@ -25,7 +25,8 @@ export interface ReceiverSession {
   stop(): Promise<void>
 }
 
-// Trusted local lifecycle only. The tunneled HTTP surface remains write-only.
+// Trusted local lifecycle only. Signed verification can observe opt-in mode,
+// but HTTP cannot control processing or retrieve local data.
 export async function startSession(root: string, config: ReceiverConfig, port: number, processing = false, signal?: AbortSignal): Promise<ReceiverSession> {
   if (signal?.aborted) throw new SetupError('Receiver startup cancelled.')
   const checkProcessing = () => {
@@ -36,7 +37,8 @@ export async function startSession(root: string, config: ReceiverConfig, port: n
   if (processing) checkProcessing()
   const inbox = new Inbox(join(root, 'inbox.sqlite'))
   inbox.recover()
-  const server = createReceiver(config, inbox)
+  let enabled = processing
+  const server = createReceiver(config, inbox, Date.now, () => existsSync(join(root, 'PAUSE')) ? 'paused' : enabled ? 'processing' : 'receiving')
   try { await new Promise<void>((ok, fail) => { server.once('error', fail); server.listen(port, '127.0.0.1', ok) }) }
   catch { inbox.close(); throw new SetupError('The receiver could not open its local port. Stop the other receiver or choose a different SMUK_RECEIVER_PORT.') }
   if (signal?.aborted) {
@@ -46,7 +48,7 @@ export async function startSession(root: string, config: ReceiverConfig, port: n
   }
   const address = server.address()
   if (!address || typeof address === 'string') { server.close(); inbox.close(); throw new SetupError('The receiver could not open its local address.') }
-  let enabled = processing, stopping = false, timer: ReturnType<typeof setTimeout> | undefined, stopped: Promise<void> | undefined
+  let stopping = false, timer: ReturnType<typeof setTimeout> | undefined, stopped: Promise<void> | undefined
   const controller = new AbortController()
   let running: Promise<void> = Promise.resolve()
   const work = async () => {

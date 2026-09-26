@@ -1,6 +1,7 @@
 // Real HTTPS pairing, bundled CLI, fake tunnel + agent, and durable local state.
 // No external tunnel, provider sign-in, real credentials or paid calls.
 import assert from 'node:assert/strict'
+import { DatabaseSync } from 'node:sqlite'
 import { spawn, execFileSync } from 'node:child_process'
 import { once } from 'node:events'
 import { createServer } from 'node:https'
@@ -42,8 +43,8 @@ writeFileSync(join(bin, 'codex'), `#!/usr/bin/env node
 const fs=require('node:fs');let input='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>input+=c);
 process.stdin.on('end',()=>{fs.appendFileSync(${JSON.stringify(calls)},input+'\\n');console.log(JSON.stringify({summary:'done'}));});
 `, { mode: 0o700 })
-const data = join(home, '.smuk', 'receivers', createHash('sha256').update(JSON.stringify([new URL(link).origin, manifest.nodeId])).digest('hex'))
-const configFile = join(data, 'config.json')
+let data = join(home, '.smuk', 'receivers', createHash('sha256').update(JSON.stringify([new URL(link).origin, manifest.nodeId])).digest('hex'))
+let configFile = join(data, 'config.json')
 let child, output = ''
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 async function until(check, timeout = 15000) {
@@ -66,17 +67,34 @@ async function finish(signal) {
 }
 function alive(pid) { try { process.kill(pid, 0); return true } catch { return false } }
 function payload(n, instructions = manifest.instructions, source = 'source') {
-  return { schemaVersion: 1, eventId: String(n).padStart(64, '0'), agent: { provider: manifest.provider, instructions },
-    message: { nodeId: manifest.nodeId, sourceNodeId: source, text: 'hello', sender: 'sender', senderId: null,
+  return { schemaVersion: 1, eventId: String(n).padStart(64, '0'), agent: { provider: manifest.provider, instructions, ...(manifest.destinationId ? { destinationId: manifest.destinationId } : {}) },
+    message: { nodeId: manifest.destinationId ? 'actual-blueprint-tile-' + n : manifest.nodeId, sourceNodeId: source, text: 'hello', sender: 'sender', senderId: null,
       platform: 'discord', receivedAt: new Date().toISOString(), channelId: null, channelName: null, serverId: null, serverName: null } }
 }
-async function post(value) {
+async function post(value, path = '/webhook') {
   const state = JSON.parse(readFileSync(tunnelState)), local = state.args[state.args.indexOf('--url') + 1]
   const config = JSON.parse(readFileSync(configFile)), body = JSON.stringify(value), timestamp = String(Math.floor(Date.now() / 1000))
   const signature = 'v1=' + createHmac('sha256', Buffer.from(config.signingSecret, 'hex')).update(timestamp + '.' + body).digest('hex')
-  return fetch(local + '/webhook', { method: 'POST', headers: { 'content-type': 'application/json', 'x-smuk-timestamp': timestamp, 'x-smuk-signature': signature }, body })
+  return fetch(local + path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-smuk-timestamp': timestamp, 'x-smuk-signature': signature }, body })
 }
 function rows() { return JSON.parse(execFileSync(process.execPath, [bundle, 'list', data], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })) }
+let nonce = 0
+async function verify(mode) {
+  const challenge = { schemaVersion: 1, type: 'smuk.receiver.verify', nonce: (++nonce).toString(16).padStart(64, '0'),
+    nodeId: manifest.nodeId, ...(manifest.destinationId ? { destinationId: manifest.destinationId } : {}),
+    provider: manifest.provider, instructions: manifest.instructions, sourceNodeIds: manifest.sourceNodeIds }
+  const before = rows(), beforeCalls = existsSync(calls) ? readFileSync(calls, 'utf8') : null
+  const response = await post(challenge, '/verify'), body = await response.text()
+  assert.equal(response.status, 200)
+  assert.deepEqual(JSON.parse(body), { schemaVersion: 1, type: 'smuk.receiver.verified', nonce: challenge.nonce,
+    approval: 'matched', mode, receiverVersion: JSON.parse(readFileSync('package.json')).version })
+  const key = JSON.parse(readFileSync(configFile)).signingSecret, time = response.headers.get('x-smuk-timestamp')
+  assert.equal(response.headers.get('x-smuk-signature'), 'v1=' + createHmac('sha256', Buffer.from(key, 'hex')).update(time + '.' + body).digest('hex'))
+  assert.deepEqual(rows(), before, 'verification changed the inbox')
+  assert.equal(existsSync(calls) ? readFileSync(calls, 'utf8') : null, beforeCalls, 'verification launched the agent')
+  assert.equal((await post(challenge, '/verify')).status, 409)
+}
+
 try {
   launch(); await until(() => output.includes('Type approve'))
   assert.ok(output.includes('Summarize as JSON.\\n')); assert.ok(output.includes('"source"'))
@@ -99,6 +117,7 @@ try {
   assert.ok(!output.includes(original.signingSecret)); assert.ok(!output.includes(token))
   const local = tunnel.args[tunnel.args.indexOf('--url') + 1]
   for (const path of ['/config', '/results', '/status', '/']) assert.equal((await fetch(local + path)).status, 404)
+  await verify('receiving')
   assert.equal((await post(payload(1))).status, 202)
   await sleep(200); assert.equal(rows()[0].state, 'queued'); assert.equal(existsSync(calls), false)
   child.stdin.write('results\n'); await until(() => output.includes('Waiting for processing'))
@@ -110,7 +129,9 @@ try {
   assert.equal(existsSync(join(data, 'receiver.lock')), true)
   child.stdin.write('process\n')
   await until(() => rows()[0].state === 'completed')
+  await verify('processing')
   child.stdin.write('pause\n'); await until(() => output.includes('processing paused'))
+  await verify('paused')
   assert.equal((await post(payload(2))).status, 202)
   await sleep(6300); assert.equal(rows().find(r => r.id === payload(2).eventId).state, 'queued')
   await finish('SIGHUP'); assert.equal(alive(tunnel.pid), false); assert.equal(existsSync(join(data, 'receiver.lock')), false)
@@ -178,6 +199,26 @@ try {
   process.kill(JSON.parse(readFileSync(tunnelState)).pid, 'SIGTERM')
   await once(child, 'exit'); child = null
   assert.ok(output.includes('public connection stopped')); assert.equal(existsSync(join(data, 'receiver.lock')), false)
+  // Saved-agent setup retains a stable profile identity while different tiles
+  // deliver through it. Verification never consumes queue capacity or runs AI.
+  const legacyConfig = configFile, oldConfig = readFileSync(legacyConfig, 'utf8')
+  manifest.nodeId = 'saved-agent-profile'; manifest.destinationId = manifest.nodeId
+  data = join(home, '.smuk', 'receivers', createHash('sha256').update(JSON.stringify([new URL(link).origin, manifest.nodeId])).digest('hex'))
+  configFile = join(data, 'config.json')
+  launch(); await until(() => output.includes('Type approve'))
+  assert.ok(output.includes('Saved agent destination: "saved-agent-profile"'))
+  child.stdin.write('approve\n'); await until(() => output.includes('Connected. Return to SMUK'))
+  assert.equal(JSON.parse(readFileSync(configFile)).destinationId, manifest.destinationId)
+  assert.equal(readFileSync(legacyConfig, 'utf8'), oldConfig, 'saved-agent setup changed legacy installation')
+  await verify('receiving')
+  const deliveries = [payload(10), payload(11)]
+  for (const delivery of deliveries) assert.equal((await post(delivery)).status, 202)
+  const database = new DatabaseSync(join(data, 'inbox.sqlite'), { readOnly: true })
+  try { assert.deepEqual(database.prepare('SELECT payload FROM messages').all().map(row => JSON.parse(row.payload).message.nodeId).sort(), deliveries.map(p => p.message.nodeId).sort()) } finally { database.close() }
+  const unapproved = { ...payload(12), agent: { ...payload(12).agent, destinationId: 'different-profile' } }
+  assert.equal((await post(unapproved)).status, 403)
+  child.stdin.write('pause\n'); await until(() => output.includes('processing paused')); await verify('paused')
+  await finish()
   console.log('SETUP APPROVAL, HTTPS PAIRING, PRIVATE TUNNEL, LOCAL CONTROLS, RECONNECT, POLICY RECHECK, FAILURE AND CLEANUP OK')
 } finally {
   await finish('SIGTERM')
