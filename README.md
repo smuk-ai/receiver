@@ -15,7 +15,7 @@ The receiver and agent CLI run on your machine; the AI model runs at the agent p
 
 ## Get started
 
-In SMUK, add an **Agent Receiver** tile, connect a source, and enter your agent and instructions. Choose **Connect computer** and copy its setup command into Terminal on your computer.
+In SMUK, set up a saved agent to reuse across tiles, or configure an individual **Agent Receiver** tile. Choose the message sources, agent and instructions. Choose **Connect computer** and copy its setup command into Terminal on your computer.
 
 The command installs the receiver and connection helper privately in `~/.smuk`. The receiver shows the exact instructions and source tiles for your approval, connects the tile, and starts receiving in that same terminal. Return to SMUK and **Publish** your blueprint. Receiving makes no AI calls.
 
@@ -29,6 +29,12 @@ Keep that terminal open. Its commands are:
 | `quit` | Stops the receiver and its temporary public connection. |
 
 Quick setup uses a temporary Cloudflare connection intended for trying the receiver. To reconnect after stopping, use **Connect computer** on the same tile again. Your inbox, signing key and local restrictions are retained; review the instructions locally again and publish the new delivery address. AI processing always starts off.
+
+**Check connection** in SMUK verifies that the receiver is reachable, recognizes
+its signing key, and has approved the selected instructions and source tiles.
+It also shows whether receiving, processing, or pause mode is active. This check
+does not send a message to the inbox or make an AI call; it cannot confirm your
+agent login or that the model will successfully answer. Results stay local.
 
 For processing, use a dedicated computer account with your agent installed and signed in. macOS/Linux support processing; Grok Build processing is Linux-only. Windows can use the manual receive/list workflow. Your agent provider's access rules and usage limits apply. Keep your config, signing secret, inbox and agent login private.
 

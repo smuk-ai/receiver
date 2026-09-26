@@ -1,6 +1,6 @@
 {
   "name": "@smuk-ai/receiver",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "User-owned receiver for signed SMUK messages and restricted local agent CLI processing.",
   "type": "module",
   "engines": {

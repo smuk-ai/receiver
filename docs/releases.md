@@ -1,6 +1,6 @@
 # Releasing the receiver
 
-1. Update package.json, package-lock.json and CHANGELOG.md with a new version. Never reuse a published version or replace its assets.
+1. Update package.json, package-lock.json, the `RECEIVER_VERSION` constant in src/protocol.ts, and CHANGELOG.md with a new version. The verification response embeds this constant so the standalone executable needs no package.json at runtime; its version is checked against package metadata in the test suite. Never reuse a published version or replace its assets.
 2. Run npm ci, npm run build, npm run coverage, npm run e2e, npm run test:package and npm run mutation. Review the diff independently and wait for CI on the release commit.
 3. Run npm pack. Inspect the tarball allowlist: built dist files, public documentation, LICENSE, NOTICE and examples only. No credentials, user data, tests, source maps or private repository history belong in the release package. The package check verifies the actual tarball's license, notice, metadata and standalone license banner; broken fixtures must be rejected too.
 4. Create the matching vVERSION tag on the tested commit. Create a GitHub release with the standalone dist/smuk-receiver.mjs, the npm package tarball, LICENSE, NOTICE and SHA256SUMS covering all four assets. The package tarball supports consumers without requiring an npm-registry publication. Never strip the embedded license/notice from the standalone file. Applications bundling the protocol must preserve receiver attribution and provide a copy of the license.

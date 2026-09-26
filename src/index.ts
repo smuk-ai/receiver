@@ -12,7 +12,8 @@ import { startTunnel, type ManagedTunnel } from './tunnel.js'
 import { SetupError, pairingLink, parseManifest, installationId, approvedConfig, approvalSummary, pairingRequest, completed } from './setup.js'
 
 // Composition root, exercised by test/e2e.mjs. Public HTTP never exposes local
-// configuration, agent controls, status or answers.
+// configuration, agent controls or answers. Signed verification reports only
+// whether approval matches and the local processing opt-in mode.
 async function main() {
   const [command, value, ...options] = process.argv.slice(2)
   process.umask(0o077)

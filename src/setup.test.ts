@@ -1,5 +1,6 @@
 import { getEventListeners } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
+import { parseConfig } from './policy.js'
 import { approvedConfig, approvalSummary, completed, installationId, pairingLink, pairingRequest, parseManifest, quickTunnelUrl, readyTunnelUrl, SetupError } from './setup.js'
 
 const manifest = { schemaVersion: 1 as const, nodeId: 'destination', provider: 'Codex' as const, instructions: 'Summarize exactly.\n', sourceNodeIds: ['source'] }
@@ -144,4 +145,21 @@ it('waits for an actual tunnel registration and rejects similar log messages', (
   expect(readyTunnelUrl(url + '\nRegistered tunnel connection')).toBe(url)
   expect(readyTunnelUrl(url + '\nnotRegistered tunnel connection error\n')).toBeNull()
   expect(readyTunnelUrl(url + '\nRegistered tunnel connections failed\n')).toBeNull()
+})
+
+
+it('keeps reusable destinations explicit during setup and never silently broadens an existing tile approval', () => {
+  const saved = { ...manifest, destinationId: manifest.nodeId }
+  expect(parseManifest(saved)).toEqual(saved)
+  for (const destinationId of [undefined, null, '', 'other', ['destination'], 'a'.repeat(201)])
+    expect(() => parseManifest({ ...manifest, destinationId })).toThrow('invalid')
+  expect(parseConfig(approvedConfig(manifest, undefined, () => token))).toMatchObject({ nodeId: manifest.nodeId })
+  expect(approvedConfig(saved, undefined, () => token)).toEqual({ ...config, sourceNodeIds: ['source'], signingSecret: token,
+    senderIds: [], channelIds: [], serverIds: [], destinationId: manifest.nodeId })
+  expect(() => approvedConfig(saved, config, () => token)).toThrow('different tile')
+  const previous = { ...config, destinationId: manifest.nodeId }
+  expect(() => approvedConfig(manifest, previous, () => token)).toThrow('different tile')
+  expect(approvedConfig(saved, previous, () => token)).toEqual({ ...previous, sourceNodeIds: ['source'] })
+  expect(approvalSummary(saved, 'https://smuk.example')).toContain('Saved agent destination: "destination"')
+  expect(approvalSummary(manifest, 'https://smuk.example')).toContain('Tile: "destination"')
 })
